@@ -43,9 +43,9 @@ def gradW_ae(a,W):
     z1 = deriva_sigmoid(a1)
     z2 = deriva_sigmoid(a2)
     e = (a2 - x)**2
-    e = sum(e)
+    e = 1/2 * sum(e)
 
-    delta2 = e**2 * deriva_sigmoid(z2)
+    delta2 = e * deriva_sigmoid(z2)
     gW2 = np.dot(delta2, a1.T)
 
     delta1 = np.multiply( np.dot(w2.T, delta2), deriva_sigmoid(z1) )
