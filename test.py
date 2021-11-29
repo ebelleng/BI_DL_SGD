@@ -5,9 +5,13 @@ import numpy as np
 import my_utility as ut
 
 # Feed-forward of the DL
-def forward_dl(x,W):        
-    #complete code    
-    return(...)
+def forward_dl(x,W):
+	Ws = W[-1]
+	W = W[:-1]
+	for w in W:
+		x = ut.act_sigmoid(np.dot(w,x))
+	zv = ut.softmax(np.dot(Ws,x))
+	return(zv)
 
 # Beginning ...
 def main():		

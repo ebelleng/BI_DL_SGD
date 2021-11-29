@@ -1,8 +1,3 @@
-'''
-INTEGRANTES
-ETIENNE BELLENGER HERRERA   17619315-8
-JUAN IGNACIO AVILA OJEDA    19013610-8
-'''
 # My Utility : auxiliary functions
 
 import pandas as pd
@@ -10,15 +5,13 @@ import numpy  as np
 
 # Initialize weights
 def iniWs(prev,next):
-    print(f'N: {next} \nP: {prev}')
-    r = np.sqrt(6/(next + prev))
-    W = np.random.rand(next,prev)
-    W = W*2*r-r    
-
-    V = np.zeros(W.shape)
-
+    w1 = iniW(next,prev)
+    w2 = iniW(prev,next)
+    W = (w1,w2)
+    v1 = np.zeros(w1.shape)
+    v2 = np.zeros(w2.shape)
+    V = (v1,v2)
     return(W,V)
-    
 # Initialize Matrix's weight    
 def iniW(next,prev):
     r = np.sqrt(6/(next+ prev))
@@ -29,166 +22,96 @@ def iniW(next,prev):
     
 # STEP 1: Feed-forward of AE
 def forward_ae(x,w):
-    # Salida del encoder
-    z1 = np.dot(w, x)
+    w1,w2 = w
+    z1 = np.dot(w1,x)
     a1 = act_sigmoid(z1)
     
-    return (a1)
-    
+    z2 = np.dot(w2, a1)
+    a2 = act_sigmoid(z2)
+    return (x,a1,a2)
 #Activation function
 def act_sigmoid(z):
     return(1/(1+np.exp(-z)))   
 # Derivate of the activation funciton
 def deriva_sigmoid(a):
     return(a*(1-a))
-def gradW_ae(a,x,w2,e):    
-    z2 = deriva_sigmoid(a2) # 1, 375
-    z1 = deriva_sigmoid(a1) # 20, 375
-    
-    # Calcular gradiente decoder
-    delta2 = np.multiply(e, deriva_sigmoid(z2)) # Probar con a2
-    dCdW2 = np.dot(delta2, a.T)
-    # Calcular gradiente 
-    delta1 = np.multiply( np.dot(w2.T, delta2), deriva_sigmoid(z1) )
-    dCdW1 = np.dot( delta1, x.T)
 
-    return dCdW1, dCdW2
 # STEP 2: Feed-Backward for AE
-def gradW_ae(a,W, e):    
-    z = deriva_sigmoid(a) 
+def gradW_ae(a,W):
+    x, a1,a2 = a
+    w1,w2 = W
+    z1 = deriva_sigmoid(a1)
+    z2 = deriva_sigmoid(a2)
+    e = (a2 - x)**2
+    e = sum(e)
 
-    # Calcular gradiente decoder
-    delta2 = np.multiply(e, deriva_sigmoid(z)) # Probar con a2
-    dCdW2 = np.dot(delta2, a.T)
+    delta2 = e**2 * deriva_sigmoid(z2)
+    gW2 = np.dot(delta2, a1.T)
 
-    gW = (dCdW2)
+    delta1 = np.multiply( np.dot(w2.T, delta2), deriva_sigmoid(z1) )
+    gW1 = np.dot( delta1, x.T)
 
-    Cost = (1/2) * np.sum( np.sum( y * np.log10(a) ) ) 
+    gW = (gW1,gW2)
 
-    return(gW,Cost)  
-
+    return(gW,e)    
 # Update AE's weights via SGD Momentum
 def updW_ae_sgd(w,v,gw,mu):
     beta= 0.9
-    v = np.dot(beta, v)+mu*gw
-    w -= v
+    w1,w2 = w
+    v1,v2 = v
+    gw1,gw2 = gw
+    # Ajuste pesos decoder
+    v2 = beta*v2 + mu*gw2
+    w2 = w2 - v2
+    #Ajuste pesos encoder
+    v1 = beta*v1 + mu*gw1
+    w1 = w1 - v1
 
+    w = (w1,w2)
+    v = (v1,v2)
     return(w,v)    
 
 # Softmax's gradient
 def gradW_softmax(x,y,w):    
-    z = np.exp( np.dot(w, x) )
+    z = np.dot(w,x)
     a = softmax(z)
-    _, N = y.shape
-
-    Cost = (-1/N) * np.sum( np.sum( y * np.log10(a) ) ) 
-
-    gW = ((-1/N) * (np.dot((y-a),np.transpose(x)))) 
-
-    return(gW,Cost)
+    ya = y*np.log(a)
+    cost = (-1/x.shape[1])*np.sum(np.sum(ya))
+    gW = ((-1/x.shape[1])*np.dot((y-a),x.T))
+    return(gW,cost)
 
 # Update Softmax's weights via SGD Momentum
 def updW_sft_sgd(w,v,gw,mu):
     beta= 0.9
-    #complete code
+    v = beta*v + mu*gw
+    w = w - v
     return(w,v)         
 
 # Calculate Softmax
 def softmax(z):
-    #complete code    
-    return
+    exp_z = np.exp(z-np.max(z))
+    return(exp_z/exp_z.sum(axis=0,keepdims=True))
 
 # Métrica
 def metricas(x,y):
-    #cm = np.identity(10)
+    confussion_matrix = np.zeros((y.shape[0], x.shape[0]))
+
+    for real, predicted in zip(y.T, x.T):
+        confussion_matrix[np.argmax(real)][np.argmax(predicted)] += 1    
     
-    posj = posiciones(x)
-    posi = posiciones(y)
-    cm = confusion_matrix(posi,posj)
-    #cm = np.identity(10)
-    print('Matriz de confusion: \n',cm)
-   # return 
-    #complete code  
     f_score = []
-    for i in range(10):
-        pre = precison(cm,i)
-        #print('precision: ', pre)
-        rec = recall(cm,i)
-        #print('recall: ',rec)
-        ppr = pre*rec
-        #print(ppr)
-        pmr = pre+rec
-        #print(pmr)
-        f = 2*ppr/pmr
-        print('F-score',i+1,': ',f)
-        f_score = np.append(f_score,f)
-        
-        
-    avgFscore = (1/10)*np.sum(f_score)
-    print('avg F-score: ',avgFscore)
- 
-    save_metricas_dl(avgFscore,f_score)    
+    for index, caracteristica in enumerate(confussion_matrix):
+        TP = caracteristica[index]
+        FP = confussion_matrix.sum(axis=0)[index] - TP
+        FN = confussion_matrix.sum(axis=1)[index] - TP
+        recall = TP / (TP + FN)
+        precision = TP / (TP + FP)
+        f_score.append(2 * (precision * recall) / (precision + recall))
 
-def precison(mc,r):
-    
-    m = mc[r,r]
-    #print('m= ',m)
-    #print('m= ',mc[r,1])
-    sumMC = np.sum(mc[r,:])
-    #print(sumMC)
-    pre = m/sumMC
-    return pre
-    
-def recall(mc,c):
-        
-    m = mc[c,c]
-    #print('m= ',m)
-    #print('m= ',mc[r,1])
-    sumMC = np.sum(mc[:,c])
-    if(sumMC == 0):
-        sumMC = 1/1000
-    #print('rec sum:',sumMC)
-    rec = m/sumMC
-    #print('rec: ',rec)
-    return rec 
+    metrics = pd.DataFrame(f_score)
+    metrics.to_csv("metrica_dl.csv", index=False, header=False)
+    return (f_score)
 
-    #Dada una matriz[C,N], por cada columna obtiene el indice del mayor y lo agrega a un np.array[N]
-def posiciones(arr):
-
-    posiciones = []
-    for c in range(len(arr[1,:])):
-        aux = arr[:,c]
-        maxcol = 0
-        indcol = 0
-        for v in range(len(aux)):
-            if(maxcol < aux[v]): 
-                maxcol = aux[v]
-                indcol = v
-        posiciones.append(indcol) 
-        
-    return np.array(posiciones)            
-        
-
-def save_metricas_dl(avgF, fscore):   
-    fscore = np.append(fscore,avgF)
-    archivo = open('estima_dl.csv', 'w')
-
-    [archivo.write(f'{fscore[i]},') for i in range(len(fscore)) ]
-
-    
-    archivo.close()
-    
-#Confusuon matrix
-def confusion_matrix(x,y):
-    #complete code  
-    cm = np.zeros((10,10))
-    
-    for i in range(len(x)):
-        pi = x[i]
-        pj = y[i]
-        cm[pi][pj] = cm[pi][pj] + 1
-    return(cm)
-    
 #------------------------------------------------------------------------
 #      LOAD-SAVE
 #-----------------------------------------------------------------------
@@ -205,7 +128,6 @@ def load_config():
     par_sft= []
     par_sft.append(np.int16(par[0]))   #MaxIters
     par_sft.append(np.float(par[1]))   #Learning 
-    par_sft.append(np.float(par[2]))   #Lambda
     return(par_sae,par_sft)
 # Load data 
 def load_data_csv(fname):
@@ -215,22 +137,18 @@ def load_data_csv(fname):
 
 # save weights SAE and costo of Softmax
 def save_w_dl(W,Ws,cost):    
-    keys = [f'w{i}' for i in range(1,len(W)+1) ]
-    w = dict(zip(keys, W))     
-    # Guardar pesos
-    np.savez_compressed('w_dl.npz', **w, ws=Ws ) 
-
-    archivo = open('costo_softmax.csv', 'w')
-    [ archivo.write(f'{c}\n') for c in cost ]
-    archivo.close()
+    np.savetxt('costo_softmax.csv', cost, delimiter=",")
+    W.append(Ws)
+    np.savez('w_dl.npz', W=W)
+    return()
     
 #load weight of the DL in numpy format
 def load_w_dl():
-    W = []
-    [ W.append(np.load('w_dl.npz')[w]) for w in np.load('w_dl.npz').files ]
+    w = np.load('w_dl.npz', allow_pickle=True)
+    return w['W']
     
-    return (W)        
 # save weights in numpy format
 def save_w_npy(w1,w2,mse):  
-    #complete code
     return
+    
+
